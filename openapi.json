@@ -1,0 +1,53 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "Sosadiaz Caption API",
+    "version": "1.0.0"
+  },
+  "paths": {
+    "/caption": {
+      "post": {
+        "summary": "Generar caption para una noticia",
+        "operationId": "generateCaption",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "instruccion": {
+                    "type": "string",
+                    "description": "Instrucción para el tipo de caption"
+                  },
+                  "noticia": {
+                    "type": "string",
+                    "description": "Texto o titular de la noticia"
+                  }
+                },
+                "required": ["instruccion", "noticia"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Caption generado",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "caption": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
