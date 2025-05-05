@@ -16,6 +16,12 @@ const openai = new OpenAI({
     apiKey: process.env.OPENAI_API_KEY
 });
 
+// Cargar embeddings generados
+const embeddingsData = JSON.parse(fs.readFileSync(path.join(__dirname, 'embeddings.json'), 'utf-8'));
+
+// Cargar archivos clave para mantener tono y visión
+const tone = fs.readFileSync(path.join(__dirname, 'data', '02_tone-style-guide (1).md'), 'utf-8');
+const about = fs.readFileSync(path.join(__dirname, 'data', '01_about-company.md'), 'utf-8');
 
 function cosineSimilarity(vecA, vecB) {
     const dotProduct = vecA.reduce((sum, a, i) => sum + a * vecB[i], 0);
@@ -23,9 +29,6 @@ function cosineSimilarity(vecA, vecB) {
     const magnitudeB = Math.sqrt(vecB.reduce((sum, val) => sum + val * val, 0));
     return dotProduct / (magnitudeA * magnitudeB);
 }
-
-const embeddingsData = JSON.parse(fs.readFileSync(path.join(__dirname, 'embeddings.json'), 'utf-8'));
-
 
 app.post('/generate-post', async (req, res) => {
     const { instruccion, noticia } = req.body;
@@ -35,6 +38,7 @@ app.post('/generate-post', async (req, res) => {
     }
 
     try {
+        // Obtener embedding de la noticia
         const embeddingResponse = await openai.embeddings.create({
             model: 'text-embedding-ada-002',
             input: noticia
@@ -42,24 +46,31 @@ app.post('/generate-post', async (req, res) => {
 
         const noticiaEmbedding = embeddingResponse.data[0].embedding;
 
-        // Calcular similitud con todos los chunks
+        // Calcular similitud con los chunks del dataset
         const scoredChunks = embeddingsData.map(chunk => ({
             ...chunk,
             score: cosineSimilarity(noticiaEmbedding, chunk.embedding)
         }));
 
-        // Ordenar y tomar los top 3 más relevantes
+        // Obtener los top 3 chunks más relevantes
         const topChunks = scoredChunks
             .sort((a, b) => b.score - a.score)
             .slice(0, 3)
             .map(c => c.text)
             .join('\n---\n');
 
+        // Armar el prompt con guía de estilo y contexto relevante
         const prompt = `
-        Eres un generador de contenido para LinkedIn que trabaja para la agencia creativa Sosadiaz.
+        Eres un generador de contenido para LinkedIn que trabaja para la agencia creativa SOSADIAZ.
 
         Instrucción: ${instruccion}
         Noticia: ${noticia}
+
+        Guía de estilo y tono:
+        ${tone}
+
+        Sobre la empresa:
+        ${about}
 
         Contexto relevante:
         ${topChunks}
@@ -70,8 +81,7 @@ app.post('/generate-post', async (req, res) => {
         const completion = await openai.chat.completions.create({
             model: "gpt-4",
             messages: [{ role: "user", content: prompt }],
-            temperature: 0.8,
-            //  max_tokens: 400,
+            temperature: 0.8
         });
 
         const caption = completion.choices?.[0]?.message?.content?.trim();
@@ -87,7 +97,6 @@ app.post('/generate-post', async (req, res) => {
         res.status(500).json({ error: "Error generando contenido." });
     }
 });
-
 
 app.listen(PORT, () => {
     console.log(`Sosadiaz API corriendo en http://localhost:${PORT}`);
