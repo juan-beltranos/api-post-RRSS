@@ -53,6 +53,16 @@ app.post('/generate-post', async (req, res) => {
             .map(c => c.text)
             .join('\n---\n');
 
+        const estilosDeApertura = [
+            "Comienza con una pregunta que despierte curiosidad.",
+            "Inicia con un dato o estadística relevante.",
+            "Empieza con una frase breve y provocadora.",
+            "Arranca con una mini anécdota ficticia que conecte con la noticia.",
+            "Introduce el post de forma directa y profesional."
+        ];
+
+        const estiloAleatorio = estilosDeApertura[Math.floor(Math.random() * estilosDeApertura.length)];
+
         const prompt = `
         Eres un generador de contenido para LinkedIn que trabaja para la agencia creativa SOSADIAZ.
 
@@ -68,8 +78,12 @@ app.post('/generate-post', async (req, res) => {
         Contexto relevante:
         ${topChunks}
 
-        Genera un post atractivo, profesional y con enfoque estratégico. No pongas hashtags ni emojis, escribe como lo haría un equipo editorial profesional.
+        ${estiloAleatorio}
+
+       Genera un post atractivo, profesional y con enfoque estratégico. No pongas hashtags ni emojis bajo ninguna circunstancia, y no incluyas notas ni aclaraciones editoriales. El contenido debe estar listo para publicarse directamente en LinkedIn.
+
         `;
+
 
         const caption = useDeepSeek
             ? await generateWithDeepSeek(prompt)
