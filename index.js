@@ -90,7 +90,7 @@ app.post('/generate-post', async (req, res) => {
             throw new Error("No se pudo generar el contenido del post.");
         }
 
-        res.json({ caption });
+        res.send(caption);
 
     } catch (error) {
         console.error("Error al generar el post:", error);
