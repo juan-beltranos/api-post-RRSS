@@ -1,10 +1,11 @@
 const express = require('express');
 const cors = require('cors');
-const OpenAI = require('openai');
 const fs = require('fs');
 const path = require('path');
 
 require('dotenv').config();
+
+const { generateWithDeepSeek, generateWithOpenAI, getEmbedding } = require('./services');
 
 const app = express();
 const PORT = 5000;
@@ -12,14 +13,12 @@ const PORT = 5000;
 app.use(cors());
 app.use(express.json());
 
-const openai = new OpenAI({
-    apiKey: process.env.OPENAI_API_KEY
-});
+
 
 // Cargar embeddings generados
 const embeddingsData = JSON.parse(fs.readFileSync(path.join(__dirname, 'embeddings.json'), 'utf-8'));
 
-// Cargar archivos clave para mantener tono y visión
+// Cargar archivos clave
 const tone = fs.readFileSync(path.join(__dirname, 'data', '02_tone-style-guide (1).md'), 'utf-8');
 const about = fs.readFileSync(path.join(__dirname, 'data', '01_about-company.md'), 'utf-8');
 
@@ -31,7 +30,8 @@ function cosineSimilarity(vecA, vecB) {
 }
 
 app.post('/generate-post', async (req, res) => {
-    const { instruccion, noticia } = req.body;
+    const { instruccion, noticia, ia } = req.body;
+    const useDeepSeek = ia === 'deepseek';
 
     if (!instruccion || !noticia) {
         return res.status(400).json({ error: "Faltan datos: instruccion y noticia son requeridos." });
@@ -39,12 +39,7 @@ app.post('/generate-post', async (req, res) => {
 
     try {
         // Obtener embedding de la noticia
-        const embeddingResponse = await openai.embeddings.create({
-            model: 'text-embedding-ada-002',
-            input: noticia
-        });
-
-        const noticiaEmbedding = embeddingResponse.data[0].embedding;
+        const noticiaEmbedding = await getEmbedding(noticia);
 
         // Calcular similitud con los chunks del dataset
         const scoredChunks = embeddingsData.map(chunk => ({
@@ -52,14 +47,12 @@ app.post('/generate-post', async (req, res) => {
             score: cosineSimilarity(noticiaEmbedding, chunk.embedding)
         }));
 
-        // Obtener los top 3 chunks más relevantes
         const topChunks = scoredChunks
             .sort((a, b) => b.score - a.score)
             .slice(0, 3)
             .map(c => c.text)
             .join('\n---\n');
 
-        // Armar el prompt con guía de estilo y contexto relevante
         const prompt = `
         Eres un generador de contenido para LinkedIn que trabaja para la agencia creativa SOSADIAZ.
 
@@ -78,13 +71,9 @@ app.post('/generate-post', async (req, res) => {
         Genera un post atractivo, profesional y con enfoque estratégico. No pongas hashtags ni emojis, escribe como lo haría un equipo editorial profesional.
         `;
 
-        const completion = await openai.chat.completions.create({
-            model: "gpt-4",
-            messages: [{ role: "user", content: prompt }],
-            temperature: 0.8
-        });
-
-        const caption = completion.choices?.[0]?.message?.content?.trim();
+        const caption = useDeepSeek
+            ? await generateWithDeepSeek(prompt)
+            : await generateWithOpenAI(prompt);
 
         if (!caption) {
             throw new Error("No se pudo generar el contenido del post.");
