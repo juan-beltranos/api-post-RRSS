@@ -21,6 +21,7 @@ const embeddingsData = JSON.parse(fs.readFileSync(path.join(__dirname, 'embeddin
 // Cargar archivos clave
 const tone = fs.readFileSync(path.join(__dirname, 'data', '02_tone-style-guide (1).md'), 'utf-8');
 const about = fs.readFileSync(path.join(__dirname, 'data', '01_about-company.md'), 'utf-8');
+const projects = fs.readFileSync(path.join(__dirname, 'data', '04_clients-and-projects.md'), 'utf-8');
 
 function cosineSimilarity(vecA, vecB) {
     const dotProduct = vecA.reduce((sum, a, i) => sum + a * vecB[i], 0);
@@ -38,10 +39,8 @@ app.post('/generate-post', async (req, res) => {
     }
 
     try {
-        // Obtener embedding de la noticia
         const noticiaEmbedding = await getEmbedding(noticia);
 
-        // Calcular similitud con los chunks del dataset
         const scoredChunks = embeddingsData.map(chunk => ({
             ...chunk,
             score: cosineSimilarity(noticiaEmbedding, chunk.embedding)
@@ -52,6 +51,17 @@ app.post('/generate-post', async (req, res) => {
             .slice(0, 3)
             .map(c => c.text)
             .join('\n---\n');
+
+        // === PROYECTOS RELACIONADOS ===
+        const projectChunks = scoredChunks
+            .filter(chunk => chunk.origen === 'projects') // Solo si en los embeddings se indica su fuente
+            .sort((a, b) => b.score - a.score)
+            .filter(p => p.score > 0.75) // Umbral de similitud
+            .slice(0, 2); // Máximo 2 proyectos relacionados
+
+        const proyectosRelacionados = projectChunks.length > 0
+            ? `\nAdemás, esta noticia está relacionada con algunos de los proyectos desarrollados por SOSADIAZ:\n${projectChunks.map(p => p.text).join('\n\n')}`
+            : '';
 
         const estilosDeApertura = [
             "Comienza con una pregunta que despierte curiosidad.",
@@ -77,13 +87,12 @@ app.post('/generate-post', async (req, res) => {
 
         Contexto relevante:
         ${topChunks}
+        ${proyectosRelacionados}
 
         ${estiloAleatorio}
 
-       Genera un post atractivo, profesional y con enfoque estratégico. No pongas hashtags ni emojis bajo ninguna circunstancia, y no incluyas notas ni aclaraciones editoriales. El contenido debe estar listo para publicarse directamente en LinkedIn.
-
+        Genera un post atractivo, profesional y con enfoque estratégico. No pongas hashtags ni emojis bajo ninguna circunstancia, y no incluyas notas ni aclaraciones editoriales. El contenido debe estar listo para publicarse directamente en LinkedIn.
         `;
-
 
         const caption = useDeepSeek
             ? await generateWithDeepSeek(prompt)
@@ -100,6 +109,7 @@ app.post('/generate-post', async (req, res) => {
         res.status(500).json({ error: "Error generando contenido." });
     }
 });
+
 
 app.listen(PORT, () => {
     console.log(`Sosadiaz API corriendo en http://localhost:${PORT}`);
