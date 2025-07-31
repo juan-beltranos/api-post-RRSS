@@ -54,14 +54,22 @@ app.post('/generate-post', async (req, res) => {
 
         // === PROYECTOS RELACIONADOS ===
         const projectChunks = scoredChunks
-            .filter(chunk => chunk.origen === 'projects') // Solo si en los embeddings se indica su fuente
+            .filter(chunk => chunk.origen === 'projects')
             .sort((a, b) => b.score - a.score)
-            .filter(p => p.score > 0.75) // Umbral de similitud
-            .slice(0, 2); // Máximo 2 proyectos relacionados
+            .filter(p => p.score > 0.75)
+            .slice(0, 2);
 
         const proyectosRelacionados = projectChunks.length > 0
-            ? `\nAdemás, esta noticia está relacionada con algunos de los proyectos desarrollados por SOSADIAZ:\n${projectChunks.map(p => p.text).join('\n\n')}`
-            : '';
+            ? `\nAdemás, esta noticia conecta con proyectos que SOSADIAZ ha desarrollado:\n${projectChunks.map(p => p.text).join('\n\n')}`
+            : '\nAunque esta noticia no conecta directamente con un proyecto específico, plantea una oportunidad clara para que SOSADIAZ pueda aplicar o adaptar su experiencia y soluciones.';
+
+        // === ENFOQUE SOSADIAZ (siempre presente) ===
+        const enfoqueSosadiaz = `
+        A partir de esta noticia, desarrolla un análisis breve de cómo SOSADIAZ podría:
+        1. Implementar estrategias relacionadas.
+        2. Conectar con servicios o proyectos que ya ofrece.
+        3. Destacar su propuesta de valor de forma alineada a la noticia.
+        `;
 
         const estilosDeApertura = [
             "Comienza con una pregunta que despierte curiosidad.",
@@ -89,9 +97,11 @@ app.post('/generate-post', async (req, res) => {
         ${topChunks}
         ${proyectosRelacionados}
 
+        ${enfoqueSosadiaz}
+
         ${estiloAleatorio}
 
-        Genera un post atractivo, profesional y con enfoque estratégico. No pongas hashtags ni emojis bajo ninguna circunstancia, y no incluyas notas ni aclaraciones editoriales. El contenido debe estar listo para publicarse directamente en LinkedIn.
+        Genera un post atractivo, profesional y con enfoque estratégico que explique cómo SOSADIAZ está alineado o podría alinearse con la noticia. No pongas hashtags ni emojis bajo ninguna circunstancia. El contenido debe estar listo para publicarse en LinkedIn.
         `;
 
         const caption = useDeepSeek
