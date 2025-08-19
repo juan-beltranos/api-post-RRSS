@@ -2,6 +2,7 @@ const express = require('express');
 const cors = require('cors');
 const fs = require('fs');
 const path = require('path');
+const puppeteer = require('puppeteer');
 
 require('dotenv').config();
 
@@ -12,7 +13,6 @@ const PORT = 5000;
 
 app.use(cors());
 app.use(express.json());
-
 
 
 // Cargar embeddings generados
@@ -28,6 +28,35 @@ function cosineSimilarity(vecA, vecB) {
     const magnitudeA = Math.sqrt(vecA.reduce((sum, val) => sum + val * val, 0));
     const magnitudeB = Math.sqrt(vecB.reduce((sum, val) => sum + val * val, 0));
     return dotProduct / (magnitudeA * magnitudeB);
+}
+
+async function getOriginalArticle(googleNewsUrl) {
+    const browser = await puppeteer.launch({
+        headless: 'new',
+        args: ['--no-sandbox']
+    });
+    const page = await browser.newPage();
+
+    const delay = (ms) => new Promise(res => setTimeout(res, ms));
+
+    try {
+        await page.goto(googleNewsUrl, {
+            waitUntil: 'domcontentloaded',
+            timeout: 50000
+        });
+
+        await delay(5000);
+
+        const finalUrl = page.url();
+
+        await browser.close();
+        return finalUrl;
+
+    } catch (err) {
+        await browser.close();
+        throw err;
+    }
+
 }
 
 app.post('/generate-post', async (req, res) => {
@@ -120,6 +149,16 @@ app.post('/generate-post', async (req, res) => {
     }
 });
 
+app.get('/resolve-url', async (req, res) => {
+    const { url } = req.query;
+    if (!url) return res.status(400).json({ error: 'Missing url' });
+    try {
+        const data = await getOriginalArticle(url);
+        res.json(data);
+    } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+});
 
 app.listen(PORT, () => {
     console.log(`Sosadiaz API corriendo en http://localhost:${PORT}`);
