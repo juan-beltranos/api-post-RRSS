@@ -153,8 +153,8 @@ app.get('/resolve-url', async (req, res) => {
     const { url } = req.query;
     if (!url) return res.status(400).json({ error: 'Missing url' });
     try {
-        const data = await getOriginalArticle(url);
-        res.json(data);
+        const u = await getOriginalArticle(url);
+        res.type('text/plain').send(u); 
     } catch (e) {
         res.status(500).json({ error: e.message });
     }
